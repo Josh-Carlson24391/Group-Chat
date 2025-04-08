@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import simpledialog
 import threading
 import socket
 import queue
@@ -8,17 +9,19 @@ class App:
         self.master = master
         master.title("Group Chat Client")
 
-        #Label Text displaying the most recent message
+
+        #Pop up to prompt user for thier name:
+        self.username = tk.simpledialog.askstring("Enter Name", "Please enter your name:")
+        if not self.username:  # If no name is entered, set a default name
+            self.username = "Guest"
+
+        #Initializing the message board
         self.label_text = tk.StringVar()
-        self.label = tk.Label(master, textvariable = self.label_text)
-        self.label.pack()
+        #Setting editinng to disabled so that it is only ever edited inside of the update messageboard function
+        self.message_board = tk.Text(master, height=20, width=20, wrap=tk.WORD, state=tk.DISABLED)
+        self.message_board.pack(padx=10, pady=10)
 
-        #Initializes the input text box
-        self.input_text = tk.Text(master=master, height=2, width=40)
-
-        #Initilizes the send button to clear the input box and send it to the server
-        self.send_button = tk.Button(master=master, text="SEND!", command=self.self.format_and_send())
-
+        
         #Initializes Queue
         self.data_queue = queue.Queue()
         self.running = True
@@ -28,7 +31,13 @@ class App:
         self.socket_thread.daemon = True  # Allow program to exit even if thread is running
         self.socket_thread.start()
 
-        
+        #Initializes the input text box
+        self.input_text = tk.Text(master=master, height=2, width=40)
+        self.input_text.pack()
+
+        #Initilizes the send button to clear the input box and send it to the server
+        self.send_button = tk.Button(master=master, text="SEND!", command=self.format_and_send)
+        self.send_button.pack()
 
 
         #Updates all the gui
@@ -42,21 +51,25 @@ class App:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 #Saves a reference to the server socket in order to also send data to the server
                 self.server_socket = s
+                #Debug
+                #print("Connected to server")
                 s.connect((host, port))
                 while self.running:
                     data = s.recv(1024)
                     #Debugging print
-                    print(data.decode())
                     if not data:
                         break
                     self.data_queue.put(data.decode())
         except Exception as e:
              self.data_queue.put(f"Error: {e}")
+             #DEBUG + FEATURe
+             self.close()
+             #Add a line that closes the connection app if the connection to the server is lost
 
     def update_gui(self):
         try:
             data = self.data_queue.get_nowait()
-            self.label_text.set(data)
+            self.update_messageboard(data)
         except queue.Empty:
             pass  # No data yet, ignore
         if self.running:
@@ -69,27 +82,39 @@ class App:
     def send_data(self, message):
         #Tries to send data to server socket, if there is no server socket it will print an error message
         try:
-            if hasattr(self, 'server_socket'):
+            if self.server_socket:
                 self.server_socket.sendall(message)
-        except Exception:
-            print("Connection to server has been lost while sending data")
-    def format_and_send(self, data):
-
+        except Exception as e:
+            print(f"{e}")
+    def format_and_send(self):
+        #Debugging code
+        #print("Formatting and sending!")
         #Extracts the whole text from input box
-        input_text = self.text_input.get("1.0", tk.END).strip()
+        input_text = self.input_text.get("1.0", tk.END).strip()
 
         #Creates a list of the first two lines
         lines = input_text.splitlines()[:2]
 
-        #Rejoins the two lines together as 
+        #Rejoins the two lines together
         message = "\n".join(lines) 
-
+        
+        #Adds username tag to message (username: message)
+        message = self.username + ": " + message
         #Clears the input box after extracting the first two lines of text
-        self.text_input.delete("1.0", tk.END)
+        self.input_text.delete("1.0", tk.END)
+
+        #Debug
+        #print(f"Sent: {message}")
 
         #Calls send data function to send the message to the server
-        self.send_data(message)
-
+        self.send_data(message.encode('utf-8'))
+    
+    def update_messageboard(self, message):
+        #Enable editing to insert text
+        self.message_board.config(state=tk.NORMAL)  
+        self.message_board.insert(tk.END, message + '\n\n')  # Insert the message
+        self.message_board.config(state=tk.DISABLED)  # Disable editing to make it read-only
+        self.message_board.yview(tk.END)  # Scroll to the bottom to show the latest message
 root = tk.Tk()
 app = App(root)
 root.protocol("WM_DELETE_WINDOW", app.close) # Handle window close event
