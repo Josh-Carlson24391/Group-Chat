@@ -7,7 +7,7 @@ condition = True
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 clients = []
 HOST = '127.0.0.1'
-PORT = 65432
+PORT = 5000
 
 #Creates a lock for threads to prevent two threads from modifing the clients list at the same time
 client_lock = threading.Lock()
@@ -46,6 +46,7 @@ def handleClient(client_sock, client_addr):
     except socket.timeout:
        print("Connection Timed out\n")
     finally:
+       #Remove Client from list of active clients, and close client socket
        clients.remove(client_sock)
        client_sock.close()
   # Remember to close the socket when done
@@ -56,5 +57,6 @@ while condition:
   connection_socket, client_addr = server_socket.accept()
   t = Thread(target = handleClient, args=(connection_socket, client_addr))
   t.start()
-  print(threading.enumerate())
+  #Debug
+  #print(threading.enumerate())
 server_socket.close()

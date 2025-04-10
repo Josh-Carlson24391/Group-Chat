@@ -7,21 +7,44 @@ import queue
 class App:
     def __init__(self, master):
         self.master = master
-        master.title("Group Chat Client")
+        
 
 
         #Pop up to prompt user for thier name:
         self.username = tk.simpledialog.askstring("Enter Name", "Please enter your name:")
-        if not self.username:  # If no name is entered, set a default name
+        
+        if not self.username:  # If no name is entered, set default name to guest
             self.username = "Guest"
 
+        master.title("Group Chat Client: " + self.username)
+        master.config(bg="black")
+        
+
+        #Creating a labeled frame to hold the message board and a scroll bar
+        self.output_frame = tk.LabelFrame(master, text="Message Board", padx=5, pady=5, bg="black", fg="white")
+        self.output_frame.pack(fill="x")
+
+        self.input_frame = tk.LabelFrame(master, text="Enter Your Message Below:", bg="black", fg="white")
+        self.input_frame.pack()
         #Initializing the message board
         self.label_text = tk.StringVar()
         #Setting editinng to disabled so that it is only ever edited inside of the update messageboard function
-        self.message_board = tk.Text(master, height=20, width=20, wrap=tk.WORD, state=tk.DISABLED)
-        self.message_board.pack(padx=10, pady=10)
+        #Message board is attatched to output frame widget so that it can have a label and be grouped with the scroll bar
+        self.message_board = tk.Text(self.output_frame, height=20, width=20, wrap=tk.WORD, state=tk.DISABLED, background="green", fg="white")
+        self.message_board.pack(side="left", fill="x", expand=True)
 
+        #Initializing scroll bar
+        self.scrollbar = tk.Scrollbar(self.output_frame, orient='vertical', background="purple")
+        #Align it on the right and make it fill the y axis of the frame
+        self.scrollbar.pack(side="right",fill="y")
         
+        #Syncing scroll bar with text box 
+
+        #When the scroll bar is moved, it updates the yview of the message board causing it to scroll with the scroll bar
+        self.scrollbar.config(command=self.message_board.yview)
+        #When the text box is scrolled with the mouse, sync the scroll bar with the textbox
+        self.message_board.config(yscrollcommand=self.scrollbar.set)
+
         #Initializes Queue
         self.data_queue = queue.Queue()
         self.running = True
@@ -32,20 +55,20 @@ class App:
         self.socket_thread.start()
 
         #Initializes the input text box
-        self.input_text = tk.Text(master=master, height=2, width=40)
+        self.input_text = tk.Text(master=self.input_frame, height=2, width=40, background="green", fg="white")
         self.input_text.pack()
 
         #Initilizes the send button to clear the input box and send it to the server
-        self.send_button = tk.Button(master=master, text="SEND!", command=self.format_and_send)
+        self.send_button = tk.Button(master=master, text="SEND!", command=self.format_and_send, background="white")
         self.send_button.pack()
-
+        
 
         #Updates all the gui
         self.update_gui()
 
     def read_socket(self):
         host = '127.0.0.1'  # Or "localhost"
-        port = 65432         # Replace with your port
+        port = 5000         # Replace with your port
 
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
